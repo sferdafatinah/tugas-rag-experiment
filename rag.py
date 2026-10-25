@@ -10,6 +10,7 @@ from vector_store import (
     search_chunks,
     store_chunks,
 )
+
 def ingest_pdf(
     file_path: str,
     source: str,
@@ -34,32 +35,54 @@ def ingest_pdf(
         chunks,
         vectors,
     )
+    
+    # --- INFO CHUNKS STORED SAAT UPLOAD ---
+    print(f"\n[INFO INGESTION] Total Chunks Stored: {stored} chunks (dari {len(pages)} halaman)\n", flush=True)
+    # --------------------------------------
+    
     return {
         "source": source,
         "pages_read": len(pages),
         "chunks_stored": stored,
     }
+
 def retrieve(
     query: str,
     limit: int = TOP_K,
 ):
+    from config import CHUNK_SIZE, CHUNK_OVERLAP
     query_vector = embed_text(
         query
     )
-    return search_chunks(
+    results = search_chunks(
         query_vector,
         limit,
     )
+    
+    # --- HEADER TERMINAL LENGKAP (CHUNK_SIZE, CHUNK_OVERLAP, TOP_K) ---
+    print(f"\n=== EKSPERIMEN RAG ===", flush=True)
+    print(f"Parameter  -> CHUNK_SIZE = {CHUNK_SIZE} | CHUNK_OVERLAP = {CHUNK_OVERLAP} | TOP_K = {limit}", flush=True)
+    print(f"Hasil      -> Total Chunk yang ditarik (Retrieved): {len(results)} chunks", flush=True)
+    for i, result in enumerate(results):
+        score = result.get("score", 0.0)
+        page = result.get("page", "Tidak diketahui")
+        print(f"  Rank {i+1} | Score: {score:.4f} | Halaman: {page}", flush=True)
+    print("==================================================================================\n", flush=True)
+    # ------------------------------------------------------------------
+    
+    return results
+
 def build_context(
     results: list[dict],
 ):
     blocks = []
     for result in results:
         blocks.append(
-            f"[Source: {result['source']} | Page: {result['page']}]\\n"
+            f"[{result['source']} | Page: {result['page']}]\n"
             f"{result['text']}"
         )
-    return "\\n\\n---\\n\\n".join(blocks)
+    return "\n\n---\n\n".join(blocks)
+
 def build_sources(
     results: list[dict],
 ):
@@ -79,6 +102,7 @@ def build_sources(
             "score": result["score"],
         })
     return sources
+
 async def ask_question(
     question: str,
 ):
@@ -111,6 +135,7 @@ CONTEXT:
         "answer": answer,
         "sources": build_sources(results),
     }
+
 async def create_brief(
     topic: str,
 ):
